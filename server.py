@@ -34,7 +34,7 @@ app = FastAPI(title="OpenAI RAG", version="1.0.0")
 STATIC_DIR = Path(__file__).parent / "static"
 DATA_DIR = Path(__file__).parent / "data"
 CHAT_HISTORY_FILE = DATA_DIR / "chat_history.json"
-COMPANY_LOGO_DIR = DATA_DIR / "Company_Logo"
+COMPANY_LOGO_DIR = Path(__file__).parent / "company_logo"
 
 
 class _SessionState:
