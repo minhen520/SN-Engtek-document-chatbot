@@ -707,6 +707,7 @@ const $ = (id) => document.getElementById(id);
 let previousResponseId = null;
 let busy = false;
 let provider = "openai";
+let providerModel = "";
 const DOCS_FETCH_TIMEOUT_MS = 12000;
 const DOCS_POLL_INTERVAL_MS = 1500;
 const DOCS_POLL_TIMEOUT_MS = 45000;
@@ -746,6 +747,41 @@ function renderAnswer(text) {
 function scrollChat() {
   const c = $("chat");
   c.scrollTop = c.scrollHeight;
+}
+
+function providerDisplayName(p) {
+  return (p || "").toLowerCase() === "lmstudio" ? "LM Studio" : "OpenAI";
+}
+
+function assistantTitle() {
+  const base = providerDisplayName(provider);
+  const model = (providerModel || "").trim();
+  return model ? `${base} - ${model}` : base;
+}
+
+function assistantTitleForMsg(div) {
+  const snap = div?.dataset?.assistantTitle;
+  return (typeof snap === "string" && snap.trim()) ? snap : assistantTitle();
+}
+
+async function refreshProviderHealth() {
+  try {
+    const res = await fetch("/api/health?provider=" + encodeURIComponent(provider));
+    const h = await res.json().catch(() => ({}));
+    if (!h.ok) {
+      providerModel = "";
+      toast(h.detail || "Provider check failed.");
+      return;
+    }
+
+    providerModel = typeof h.model === "string" ? h.model : "";
+
+    if (provider === "openai" && !h.api_key_set) {
+      toast("OPENAI_API_KEY is not set — see README.");
+    }
+  } catch {
+    // Ignore transient network errors.
+  }
 }
 
 /* ---------------- documents ---------------- */
@@ -899,12 +935,13 @@ function addUserMsg(text) {
   scrollChat();
 }
 
-function addPendingMsg() {
+function addPendingMsg(titleSnapshot) {
   const div = document.createElement("div");
   div.className = "msg assistant";
+  div.dataset.assistantTitle = (titleSnapshot || "").trim();
   div.innerHTML = `<div class="assistant-avatar" aria-hidden="true">✦</div>
     <div class="message-body">
-      <div class="who">Assistant</div>
+      <div class="who">${esc(assistantTitleForMsg(div))}</div>
       <div class="bubble thinking-bubble">
         <div class="thinking">
           <span class="thinking-orb" aria-hidden="true">✦</span>
@@ -923,7 +960,7 @@ function addPendingMsg() {
 function fillAnswer(div, data) {
   let html = `<div class="assistant-avatar" aria-hidden="true">✦</div>
     <div class="message-body">
-      <div class="who">Assistant</div>
+      <div class="who">${esc(assistantTitleForMsg(div))}</div>
       <div class="bubble">${renderAnswer(data.answer || "(no answer)")}</div>`;
   if (data.citations?.length) {
     html += `<div class="cite-row">${data.citations
@@ -954,7 +991,8 @@ async function ask() {
   $("question").value = "";
   autosize();
   addUserMsg(q);
-  const pending = addPendingMsg();
+  const titleSnapshot = assistantTitle();
+  const pending = addPendingMsg(titleSnapshot);
   try {
     const res = await fetch("/api/ask", {
       method: "POST",
@@ -968,7 +1006,7 @@ async function ask() {
   } catch (e) {
     pending.innerHTML = `<div class="assistant-avatar" aria-hidden="true">✦</div>
       <div class="message-body">
-        <div class="who">Assistant</div>
+        <div class="who">${esc(assistantTitleForMsg(pending))}</div>
         <div class="bubble error">⚠ ${esc(e.message)}</div>
       </div>`;
     scrollChat();
@@ -1034,26 +1072,14 @@ providerSelect?.addEventListener("change", () => {
   provider = providerSelect.value || "openai";
   localStorage.setItem("documentChatbotProvider", provider);
   previousResponseId = null;
+  providerModel = "";
   toast(provider === "lmstudio" ? "Switched to LM Studio (local)." : "Switched to OpenAI.", true);
   refreshDocs(true);
-  fetch("/api/health?provider=" + encodeURIComponent(provider))
-    .then((r) => r.json())
-    .then((h) => {
-      if (!h.ok) toast(h.detail || "Provider check failed.");
-      if (provider === "openai" && !h.api_key_set) toast("OPENAI_API_KEY is not set — see README.");
-    })
-    .catch(() => {});
+  refreshProviderHealth();
 });
 
 refreshDocs(true);
-
-fetch("/api/health?provider=" + encodeURIComponent(provider))
-  .then((r) => r.json())
-  .then((h) => {
-    if (!h.ok) toast(h.detail || "Provider check failed.");
-    if (provider === "openai" && !h.api_key_set) toast("OPENAI_API_KEY is not set — see README.");
-  })
-  .catch(() => {});
+refreshProviderHealth();
 </script>
 </body>
 </html>
