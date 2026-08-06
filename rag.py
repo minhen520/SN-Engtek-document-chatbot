@@ -85,6 +85,29 @@ _lm_client: OpenAI | None = None
 Provider = Literal["openai", "lmstudio"]
 
 
+def _format_history(history: list[dict[str, str]] | None, max_chars: int = 4000) -> str:
+    """Return the most recent conversation turns as provider-neutral context."""
+    if not history:
+        return ""
+
+    turns: list[str] = []
+    used = 0
+    for message in reversed(history):
+        role = (message.get("role") or "").strip().lower()
+        content = (message.get("content") or "").strip()
+        if role not in ("user", "assistant") or not content:
+            continue
+        prefix = "User" if role == "user" else "Assistant"
+        turn = f"{prefix}: {content}"
+        turns.append(turn)
+        used += len(turn) + 1
+        if used >= max_chars:
+            break
+
+    turns.reverse()
+    return "\n".join(turns)[-max_chars:]
+
+
 def client() -> OpenAI:
     global _client
     if _client is None:
@@ -367,6 +390,25 @@ def _is_smalltalk(question: str) -> bool:
     return any(re.search(p, q) for p in patterns)
 
 
+def _wants_web_search(question: str) -> bool:
+    q = _normalize(question)
+    if not q:
+        return False
+    # Simple intent check: if the user explicitly asks to search online/web.
+    phrases = [
+        "search online",
+        "search the web",
+        "web search",
+        "search web",
+        "google",
+        "browse the web",
+        "look it up online",
+        "look up online",
+        "find online",
+    ]
+    return any(p in q for p in phrases)
+
+
 def can_use_web_search(question: str) -> bool:
     if not WEB_SEARCH_ENABLED:
         return False
@@ -442,6 +484,7 @@ def _ask_with_web_sources(
     question: str,
     provider: Provider,
     previous_response_id: str | None = None,
+    history_text: str = "",
 ) -> dict[str, Any]:
     sources = _tavily_search(question)
     if not sources:
@@ -457,11 +500,12 @@ def _ask_with_web_sources(
     for i, s in enumerate(sources, start=1):
         numbered.append(f"[{i}] {s['title']} — {s['url']}\n{s['snippet']}")
     context = "WEB SOURCES:\n\n" + "\n\n".join(numbered)
+    history_block = f"CHAT HISTORY:\n{history_text}\n\n" if history_text else ""
 
     user = (
         "Use ONLY the provided WEB SOURCES. Cite every factual claim with [n] where n is the source number.\n"
         "Return JSON only as {\"answer\": string, \"confidence\": number} (0..1).\n\n"
-        f"Question: {question}\n\n{context}"
+        f"{history_block}Question: {question}\n\n{context}"
     )
 
     answer, conf, resp_id = _llm_answer_json(provider, user, previous_response_id=previous_response_id)
@@ -607,6 +651,7 @@ def ask(
     question: str,
     previous_response_id: str | None = None,
     provider: Provider = "openai",
+    history: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Answer a question grounded in the uploaded documents.
 
@@ -637,13 +682,33 @@ def ask(
             can_use_web_search(question),
         )
 
+    history_text = _format_history(history)
+
+    # If user explicitly requests web search, prefer Tavily (when enabled).
+    # This avoids the confidence-based selection which can skip web for OpenAI.
+    if _wants_web_search(question) and can_use_web_search(question):
+        return _ask_with_web_sources(
+            question,
+            provider,
+            previous_response_id=previous_response_id,
+            history_text=history_text,
+        )
+
+    def with_history(prompt_question: str) -> str:
+        if not history_text:
+            return prompt_question
+        return f"CHAT HISTORY:\n{history_text}\n\nUSER QUESTION:\n{prompt_question}"
+
     # 1) Try internal document retrieval (OpenAI vector store). Works for both
     # providers if OPENAI_API_KEY is set.
     sources: list[dict[str, Any]] = []
     retrieval_resp_id: str | None = None
     try:
         if os.getenv("OPENAI_API_KEY"):
-            sources, retrieval_resp_id = _retrieve_doc_sources(question, previous_response_id=previous_response_id)
+            sources, retrieval_resp_id = _retrieve_doc_sources(
+                with_history(question),
+                previous_response_id=previous_response_id,
+            )
     except Exception as exc:
         if DEBUG:
             _log.info("ask: retrieval failed: %s", exc)
@@ -668,7 +733,7 @@ def ask(
             "Answer using ONLY the provided DOCUMENT PASSAGES. "
             "Cite every factual claim with [n] where n is the passage number. "
             "Return JSON only as {\"answer\": string, \"confidence\": number} (0..1).\n\n"
-            f"Question: {question}\n\n{context}"
+            f"{with_history(question)}\n\n{context}"
         )
         answer, _conf, resp_id = _llm_answer_json(provider, prompt, previous_response_id=previous_response_id)
         return {
@@ -702,14 +767,19 @@ def ask(
 
     prompt = (
         "Return JSON only as {\"answer\": string, \"confidence\": number} (0..1).\n\n"
-        f"Question: {question}"
+        f"{with_history(question)}"
     )
     gen_answer, gen_conf, gen_id = _llm_answer_json(provider, prompt, previous_response_id=previous_response_id)
     if DEBUG:
         _log.info("ask: model-knowledge confidence=%s", gen_conf)
 
     if can_use_web_search(question):
-        web = _ask_with_web_sources(question, provider, previous_response_id=previous_response_id)
+        web = _ask_with_web_sources(
+            question,
+            provider,
+            previous_response_id=previous_response_id,
+            history_text=history_text,
+        )
         web_conf = float(web.get("confidence") or 0)
         if DEBUG:
             _log.info("ask: tavily-grounded confidence=%s", web_conf)
