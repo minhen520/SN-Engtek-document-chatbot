@@ -97,7 +97,7 @@ Refusal behavior:
 - `data/state.json` only stores the vector store id — your documents live in your OpenAI account, scoped to your API key.
 
 
-Contributer Credit:
+## Contributer Credit:
 1. Toh Seong Thye (Smith & Nephew)
 2. Muhamad Eizham (Smith & Nephew)
 3. Khoo Jia Hen (Eng Teknologi Sdn Bhd)
