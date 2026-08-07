@@ -95,3 +95,9 @@ Refusal behavior:
 - Per-file upload limit is 50 MB (configurable in `server.py`); OpenAI's own limit is 512 MB / ~5M tokens per file.
 - Vector store storage is billed by OpenAI at $0.10/GB/day after the first free GB; the store persists until you delete it.
 - `data/state.json` only stores the vector store id — your documents live in your OpenAI account, scoped to your API key.
+
+
+Contributer Credit:
+1. Toh Seong Thye (Smith & Nephew)
+2. Muhamad Eizham (Smith & Nephew)
+3. Khoo Jia Hen (Eng Teknologi Sdn Bhd)
