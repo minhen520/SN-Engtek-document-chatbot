@@ -47,6 +47,14 @@ jobs:
         run: |
           git fetch mirror
           git log --oneline HEAD..mirror/main
+
+      - name: Compare SHAs
+        run: |
+          echo "Local:"
+          git rev-parse HEAD
+      
+          echo "Mirror:"
+          git rev-parse mirror/main
     
       - name: Push to mirror
         run: |
