@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
       - name: Check Secret
         run: |
           if [ -z "${{ secrets.MIRROR_TOKEN }}" ]; then
@@ -24,13 +27,3 @@ jobs:
       - name: Debug Remote
         run: |
           git remote -v
-    
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Push to mirror
-        run: |
-          git remote add mirror https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git
-          git push mirror --all
-          git push mirror --tags
