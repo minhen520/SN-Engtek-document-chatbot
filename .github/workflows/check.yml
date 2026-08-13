@@ -10,6 +10,9 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Check Secret
         run: |
@@ -36,7 +39,11 @@ jobs:
         run: |
           git remote -v
           
+      - name: Show Git Config
+        run: |
+          git config --list
+    
       - name: Push to mirror
         run: |
-          git push mirror --all
-          git push mirror --tags
+          git push https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git --all
+          git push https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git --tags
