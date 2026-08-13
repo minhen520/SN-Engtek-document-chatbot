@@ -1,0 +1,8 @@
+- name: Check Secret
+  run: |
+    if [ -z "${{ secrets.MIRROR_TOKEN }}" ]; then
+      echo "TOKEN IS EMPTY"
+      exit 1
+    else
+      echo "TOKEN EXISTS"
+    fi
