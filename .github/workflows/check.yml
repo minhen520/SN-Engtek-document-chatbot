@@ -20,3 +20,13 @@ jobs:
       - name: Test GitHub Access
         run: |
           git ls-remote https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git
+          
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to mirror
+        run: |
+          git remote add mirror https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git
+          git push mirror --all
+          git push mirror --tags
