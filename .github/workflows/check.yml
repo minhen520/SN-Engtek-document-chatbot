@@ -20,7 +20,11 @@ jobs:
       - name: Test GitHub Access
         run: |
           git ls-remote https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git
-          
+
+      - name: Debug Remote
+        run: |
+          git remote -v
+    
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
