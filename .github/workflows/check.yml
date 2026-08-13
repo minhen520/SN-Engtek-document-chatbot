@@ -27,3 +27,13 @@ jobs:
       - name: Debug Remote
         run: |
           git remote -v
+
+      - name: Test Push Authentication
+        run: |
+          git ls-remote mirror
+
+      - name: Push to mirror
+        run: |
+          git remote add mirror https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git
+          git push mirror --all
+          git push mirror --tags
