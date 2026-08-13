@@ -16,3 +16,7 @@ jobs:
           else
             echo "TOKEN EXISTS"
           fi
+
+      - name: Test GitHub Access
+        run: |
+          git ls-remote https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git
