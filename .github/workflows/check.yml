@@ -58,5 +58,5 @@ jobs:
     
       - name: Push to mirror
         run: |
-          git push https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git --all
-          git push https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git --tags
+          git push --force https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git --all
+          git push --force https://x-access-token:${{ secrets.MIRROR_TOKEN }}@github.com/JohnKhoo-Work/engtek-chatbot-RAG.git --tags
