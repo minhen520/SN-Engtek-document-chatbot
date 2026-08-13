@@ -42,6 +42,11 @@ jobs:
       - name: Show Git Config
         run: |
           git config --list
+
+      - name: Compare Branches
+        run: |
+          git fetch mirror
+          git log --oneline HEAD..mirror/main
     
       - name: Push to mirror
         run: |
